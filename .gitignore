@@ -1,3 +1,4 @@
 *.csv
 dump_univ_*.xlsx
 log-*.txt
+env
