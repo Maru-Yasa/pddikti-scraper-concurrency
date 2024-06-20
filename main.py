@@ -78,7 +78,12 @@ class PddiktiScrapper:
     def append_to_csv(self, file_path, data):
         df = pd.DataFrame(data)
         header = not os.path.exists(file_path)
-        df.to_csv(file_path, mode='a', index=False, header=header)
+        df.to_csv(file_path, 
+                  mode='a', 
+                  index=False, 
+                  header=header,
+                  index_label=[*data[0]]
+                )
 
     def save_json(self, file_path, data):
         with open(file_path, 'w') as f:
@@ -124,13 +129,13 @@ class PddiktiScrapper:
 
                 rasio_prodi = {}
                 for rasio in raw_rasio_prodi:
-                    rasio_prodi[rasio['smt']] = self.convert_to_one_x_ratio(rasio['jmldosen'], rasio['jmlmhs'])
+                    rasio_prodi[f"Rasio Dosen:Mahasiswa {rasio['smt']}"] = self.convert_to_one_x_ratio(rasio['jmldosen'], rasio['jmlmhs'])
 
+                detail_prodi.update(rasio_prodi)
                 data_prodi.append({
                     "nama_pt": self.extract(univ, 'nama_pt'),
                     "kode_pt": self.extract(univ, 'kode_pt'),
-                    **detail_prodi,
-                    # **rasio_prodi
+                    **detail_prodi
                     # "kode_prodi": self.extract(prodi, 'kode_prodi'),
                     # "nama": self.extract(prodi, 'nm_lemb'),
                     # "status": self.extract(prodi, 'stat_prodi'),
@@ -143,8 +148,7 @@ class PddiktiScrapper:
             except Exception as e:
                 self.logger.log(f"Error processing: {e}")
                 continue
-
-        # Append data to the Excel file
+            
         self.append_to_csv(file_name, data_prodi)
 
     def get_all_univ_prodi_detail(self):
