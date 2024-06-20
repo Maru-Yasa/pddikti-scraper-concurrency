@@ -1,4 +1,8 @@
 *.csv
-dump_univ_*.xlsx
+results
+dump_univ_*
+dump*
+logs
 log-*.txt
 env
+__pycache__
