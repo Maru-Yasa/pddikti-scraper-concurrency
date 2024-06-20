@@ -1,7 +1,11 @@
 from PSWC import PddiktiScrapper
 import typer
 
-app = typer.Typer()
+app = typer.Typer(
+    name="Pddikti Scrapper With Concurrency",
+    help="Scrapper Pddikti with concurrency",
+    no_args_is_help=True,
+)
 scraper = PddiktiScrapper()
 
 @app.command()

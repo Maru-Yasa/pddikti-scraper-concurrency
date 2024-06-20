@@ -4,11 +4,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from PSWC import Logger
 from PSWC import ApiFrontEnd
+from PSWC import Helper
+from rich.progress import Progress, BarColumn, TextColumn
+
 
 class PddiktiScrapper:
     def __init__(self):
         self.api_front = ApiFrontEnd()
         self.logger = Logger()
+        self.helper = Helper()
 
     def extract(self, data, key):
         try:
@@ -50,7 +54,7 @@ class PddiktiScrapper:
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=4)
 
-    def dump_all_univ(self, output=None,csv=True, excel=False, export=False):
+    def dump_all_univ(self, output=None, csv=True, excel=False, export=False):
         self.logger.log("Begin dumping all univ")
         data = self.api_front.get_all_univ()
         self.logger.log(f"Got {len(data)} data")
@@ -66,14 +70,6 @@ class PddiktiScrapper:
             self.logger.log("Success exporting data univ")
         else:
             return data
-        
-    def convert_to_one_x_ratio(self, numerator, denominator):
-        if numerator == 0:
-            return f"1:-"
-
-        x = denominator / numerator
-
-        return f"1:{x:.2f}"
 
     def process_univ(self, univ, file_name):
         all_prodi = self.api_front.get_all_prodi(self.extract(univ, 'id_sp'))
@@ -94,7 +90,7 @@ class PddiktiScrapper:
 
                 rasio_prodi = {}
                 for rasio in raw_rasio_prodi:
-                    rasio_prodi[f"Rasio Dosen:Mahasiswa {rasio['smt']}"] = self.convert_to_one_x_ratio(rasio['jmldosen'], rasio['jmlmhs'])
+                    rasio_prodi[f"Rasio Dosen:Mahasiswa {rasio['smt']}"] = self.helper.convert_to_one_x_ratio(rasio['jmldosen'], rasio['jmlmhs'])
 
                 detail_prodi.update(rasio_prodi)
                 data_prodi.append({
@@ -112,10 +108,29 @@ class PddiktiScrapper:
         self.logger.log("Begin getting all univ prodi detail")
 
         all_univ = self.dump_all_univ(export=False)
-        
+
         file_name = output if output != None else f'results/dump_univ_prodi/dump_univ_prodi_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(self.process_univ, univ, file_name) for univ in all_univ]
-            for future in as_completed(futures):
-                future.result()
+        progress = Progress(
+            "[progress.description]{task.description}",
+            BarColumn(),
+            "[progress.percentage]{task.percentage:>3.0f}%",
+            TextColumn("({task.completed} dari {task.total} data universitas berhasil di dump)"),
+        )
+
+        with progress:
+            task_id = progress.add_task("[cyan]Dumping prodi...", total=len(all_univ))
+
+            def process_and_update(univ):
+                self.process_univ(univ, file_name)
+                progress.advance(task_id)
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(process_and_update, univ) for univ in all_univ]
+                for future in as_completed(futures):
+                    try:
+                        future.result()  # Retrieve the result to raise exceptions, if any
+                    except Exception as e:
+                        self.logger.log(f"Error processing: {e}")
+
+        self.logger.log("Finished getting all univ prodi detail")
